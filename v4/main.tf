@@ -1,3 +1,12 @@
+terraform {
+  required_providers {
+    null = {
+      source  = "hashicorp/null"
+      version = "3.2.4"
+    }
+  }
+}
+
 resource "azurerm_network_interface" "main" {
   for_each            = var.components
   name                = "${each.key}-nic"
@@ -20,15 +29,20 @@ resource "azurerm_linux_virtual_machine" "main" {
   size                  = each.value
 
   source_image_id = var.image_id
+
   os_disk {
     caching              = "ReadWrite"
     storage_account_type = "Standard_LRS"
   }
-  admin_username                  = "devops"
-  admin_password                  = "devops@12345"
+
+  admin_password = "devops@12345"
+  admin_username = "devops"
+
   disable_password_authentication = false
-  secure_boot_enabled             = true
-  vtpm_enabled                    = true
+
+  secure_boot_enabled = true
+  vtpm_enabled        = true
+
 }
 
 resource "azurerm_dns_a_record" "main" {
@@ -41,13 +55,14 @@ resource "azurerm_dns_a_record" "main" {
 }
 
 resource "null_resource" "ansible" {
-
   depends_on = [azurerm_linux_virtual_machine.main]
-  for_each   = var.components
+
+  for_each = var.components
 
   triggers = {
     instance = azurerm_linux_virtual_machine.main[each.key].id
   }
+
   provisioner "remote-exec" {
     connection {
       type     = "ssh"
@@ -55,6 +70,7 @@ resource "null_resource" "ansible" {
       password = "devops@12345"
       host     = azurerm_network_interface.main[each.key].private_ip_address
     }
+
     inline = [
       "sudo dnf install python3-pip -y",
       "sudo pip3.12 install ansible",
